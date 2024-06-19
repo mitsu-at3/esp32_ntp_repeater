@@ -309,6 +309,8 @@ void IRAM_ATTR onBlinkPowLedTimer() {
  * 電波ONタイマ割り込み
  */
 void IRAM_ATTR onSignalOnTimer() {
+  // ESP32 3.0.0で ets_delay_us が消えたため一旦削除
+  /*
   struct timespec nowTime;
   if (clock_gettime(CLOCK_REALTIME, &nowTime) != -1) {
     // 残り時間を待機
@@ -318,6 +320,7 @@ void IRAM_ATTR onSignalOnTimer() {
   } else {
     log_w("error clock_gettime");
   }
+  */
 
   // 出力ON
   digitalWrite(GPIO_JJY, HIGH);
@@ -387,16 +390,15 @@ void setup() {
 
   // タイマ初期化
   log_i("Initialize Timer");
-  auto timer = timerBegin(2, getApbFrequency() / 1000000, true);
+  auto timer = timerBegin(1000000);
   // パワーLED点滅開始
-  timerAttachInterrupt(timer, &onBlinkPowLedTimer, false);
-  timerAlarmWrite(timer, 500000, true);
-  timerAlarmEnable(timer);
+  timerAttachInterrupt(timer, &onBlinkPowLedTimer);
+  timerAlarm(timer, 500000, true, 0);
   // 電波On/Off制御用タイマ初期化
-  g_signalOnTimer = timerBegin(0, getApbFrequency() / 1000000, true);
-  timerAttachInterrupt(g_signalOnTimer, &onSignalOnTimer, false);
-  g_signalOffTimer = timerBegin(1, getApbFrequency() / 1000000, true);
-  timerAttachInterrupt(g_signalOffTimer, &onSignalOffTimer, false);
+  g_signalOnTimer = timerBegin(1000000);
+  timerAttachInterrupt(g_signalOnTimer, &onSignalOnTimer);
+  g_signalOffTimer = timerBegin(1000000);
+  timerAttachInterrupt(g_signalOffTimer, &onSignalOffTimer);
 
   // 割り込み通知用セマフォ初期化
   g_hSemaphore = xSemaphoreCreateBinary();
@@ -572,8 +574,9 @@ void loop() {
   for (;;) {
     // ONタイマ開始（次の秒の少し前で割り込み）
     timerRestart(g_signalOnTimer);
-    timerAlarmWrite(g_signalOnTimer, (999500000 - nowTime.tv_nsec) / 1000, false);
-    timerAlarmEnable(g_signalOnTimer);
+    //timerAlarm(g_signalOnTimer, (999500000 - nowTime.tv_nsec) / 1000, false, 0);
+    // ESP32 3.0.0で ets_delay_us が消えたため次の秒ピッタリで割り込みに変更
+    timerAlarm(g_signalOnTimer, (1000000000 - nowTime.tv_nsec) / 1000, false, 0);
 
     // 次の秒を取得
     nowTime.tv_sec += 1;
@@ -618,8 +621,7 @@ void loop() {
 
     // OFFタイマ開始（発信時間経過で割り込み）
     timerRestart(g_signalOffTimer);
-    timerAlarmWrite(g_signalOffTimer, onTime, false);
-    timerAlarmEnable(g_signalOffTimer);
+    timerAlarm(g_signalOffTimer, onTime, false, 0);
 
     if (nowDateTime.tm_sec == 59) {
       // 次が0秒なら新しいタイムコードを生成
