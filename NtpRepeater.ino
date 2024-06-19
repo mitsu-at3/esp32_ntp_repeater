@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_sntp.h>
 #include <esp_pm.h>
+#include <rom/ets_sys.h>
 
 // 設定関係
 #pragma region Configrations
@@ -309,8 +310,6 @@ void IRAM_ATTR onBlinkPowLedTimer() {
  * 電波ONタイマ割り込み
  */
 void IRAM_ATTR onSignalOnTimer() {
-  // ESP32 3.0.0で ets_delay_us が消えたため一旦削除
-  /*
   struct timespec nowTime;
   if (clock_gettime(CLOCK_REALTIME, &nowTime) != -1) {
     // 残り時間を待機
@@ -320,7 +319,6 @@ void IRAM_ATTR onSignalOnTimer() {
   } else {
     log_w("error clock_gettime");
   }
-  */
 
   // 出力ON
   digitalWrite(GPIO_JJY, HIGH);
@@ -574,9 +572,7 @@ void loop() {
   for (;;) {
     // ONタイマ開始（次の秒の少し前で割り込み）
     timerRestart(g_signalOnTimer);
-    //timerAlarm(g_signalOnTimer, (999500000 - nowTime.tv_nsec) / 1000, false, 0);
-    // ESP32 3.0.0で ets_delay_us が消えたため次の秒ピッタリで割り込みに変更
-    timerAlarm(g_signalOnTimer, (1000000000 - nowTime.tv_nsec) / 1000, false, 0);
+    timerAlarm(g_signalOnTimer, (999500000 - nowTime.tv_nsec) / 1000, false, 0);
 
     // 次の秒を取得
     nowTime.tv_sec += 1;
